@@ -23,7 +23,7 @@ class Location
     public int Width { get; set; }
     public int Height { get; set; }
     public List<Player> Players { get; set; } = new List<Player>();
-    
+
     public Location()
     {
         (X, Y) = (0, 0);
@@ -42,12 +42,15 @@ class Location
                 else Console.Write("[]");
             }
         }
+
     }
 
     public Player? GetPlayerByPosition(int x, int y)
     {
-        foreach(Player player in Players) 
-            if(player.X == x && player.Y == y)
+        Player[] players;
+        lock (Players) players = Players.ToArray();
+        foreach (Player player in players)
+            if (player.X == x && player.Y == y)
                 return player;
         return null;
     }
@@ -57,15 +60,50 @@ class UDPClientApp
 {
     static Location location = new Location();
     static Player player = new Player();
+    static string serverIP = "127.0.0.1";
+    static int port = 5055;
+    static IPEndPoint serverEP = 
+        new IPEndPoint(IPAddress.Parse(serverIP), port);
+    static UdpClient server = new UdpClient();
+
+    static void UpdatePlayers()
+    {
+        while (true)
+        {
+            server.Send(
+                Encoding.UTF8.GetBytes(
+                        JsonSerializer.Serialize(player)
+            ), serverEP);
+
+            string response = Encoding.UTF8.GetString(
+                server.Receive(ref serverEP)
+            );
+            Player[]? otherPlayers =
+                JsonSerializer.Deserialize<Player[]>(response);
+            if (otherPlayers != null)
+            {
+                lock (location.Players)
+                {
+                    location.Players.Clear();
+                    location.Players.Add(player);
+                    location.Players.AddRange(otherPlayers);
+                }
+            }
+            Thread.Sleep(10);
+        }
+    }
+
     static void Main(string[] args)
     {
         Console.CursorVisible = false;
         location.Players.Add(player);
-        location.Players.Add(new Player(4, 10));
+
+        Thread updateThread = new Thread(UpdatePlayers);
+        updateThread.Start();
 
         while (true)
         {
-            if(Console.KeyAvailable)
+            if (Console.KeyAvailable)
             {
                 ConsoleKey key = Console.ReadKey(true).Key;
                 switch (key)
@@ -81,11 +119,4 @@ class UDPClientApp
         }
     }
 }
-/*
-    Написати функцію, яка в окремому потоці буде відправляти на сервер
-    інформацію про локального гравця та отримує відповідь з переліком
-    всіх інших гравців на сервері.
-
-    Також функція має оновлювати список гравців у об`єкті класу Location,
-    щоб вони виводились на екран клієнта.
- */
+ 
