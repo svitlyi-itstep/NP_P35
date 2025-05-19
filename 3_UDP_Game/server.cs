@@ -19,14 +19,15 @@ class Player
 class UDPSeverApp
 {
     static int port = 5055;
-    static Dictionary<IPEndPoint, Player> players = 
+    static Dictionary<IPEndPoint, Player> players =
         new Dictionary<IPEndPoint, Player>();
 
     static Player[] GetResponseForClient(IPEndPoint client)
     {
         List<Player> response = new List<Player>();
-        foreach (var player in players) {
-            if (player.Key != client)
+        foreach (var player in players)
+        {
+            if (!player.Key.Equals(client))
                 response.Add(player.Value);
         }
         return response.ToArray();
@@ -43,11 +44,11 @@ class UDPSeverApp
         {
             IPEndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
             byte[] data = server.Receive(ref remoteEP);
-            
+
             string message = Encoding.UTF8.GetString(data);
             Player? player = JsonSerializer.Deserialize<Player>(message);
             if (player == null) continue;
-            if(players.ContainsKey(remoteEP)) players[remoteEP] = player;
+            if (players.ContainsKey(remoteEP)) players[remoteEP] = player;
             else players.Add(remoteEP, player);
 
             Player[] response = GetResponseForClient(remoteEP);
